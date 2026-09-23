@@ -34,7 +34,17 @@ const coverEl = document.getElementById('cover');
 function cover(on, msg){ coverOn = on; coverEl.textContent = msg || 'Video starting…'; coverEl.classList.toggle('off', !on); }
 function tell(m){ try{ (window.__log=window.__log||[]).push([Math.round(performance.now()/100)/10, m.state]); }catch(e){}
   try{ parent.postMessage(Object.assign({aemtPlayer:true, id}, m), '*'); }catch(e){} }
-if(!id){ cover(true,'No video selected.'); }
+const tt = (q.get('tt')||'').replace(/[^0-9]/g,'');
+let ttFrame = null;
+function ttSend(type, value){ try{ const m = {'x-tiktok-player': true, type}; if(value !== undefined) m.value = value; ttFrame.contentWindow.postMessage(m, '*'); }catch(e){} }
+if(tt){
+  // TikTok: official TikTok embed player, centred (TikToks are vertical). TikTok shows no ads in embeds (verified by Scott 22 Sep 2026).
+  // It starts muted; on "show" (V) we ask it to unmute and play. If the browser still blocks sound, click the speaker once.
+  document.getElementById('p').innerHTML = '<iframe id="ttf" src="https://www.tiktok.com/player/v1/' + tt + '?autoplay=1&controls=1&progress_bar=1&play_button=1&volume_control=1&fullscreen_button=0&timestamp=1&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=1" allow="autoplay; encrypted-media; fullscreen" style="position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);height:100%;aspect-ratio:9/16;width:auto;border:0"></iframe>';
+  ttFrame = document.getElementById('ttf');
+  ttFrame.addEventListener('load', ()=>{ setTimeout(()=>{ ttSend('unMute'); ttSend('play'); }, 800); });
+  cover(false);
+} else if(!id){ cover(true,'No video selected.'); }
 else {
   const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
 }
@@ -62,6 +72,7 @@ function tick(){
 }
 window.addEventListener('message', e=>{
   const d = e.data || {};
+  if(tt){ if(d.cmd === 'show'){ ttSend('unMute'); ttSend('play'); } else if(d.cmd === 'reset'){ ttSend('pause'); ttSend('seekTo', 0); } return; }
   if(d.cmd === 'show'){ shown = true; ended = false; stall = 0; cover(true); if(player && player.playVideo){ player.playVideo(); } }
   else if(d.cmd === 'reset'){ shown = false; ended = false; cover(true); if(player && player.pauseVideo){ player.pauseVideo(); player.mute(); player.seekTo(START, true); ready = true; } }
 });
