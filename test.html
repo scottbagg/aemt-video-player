@@ -34,7 +34,12 @@ const coverEl = document.getElementById('cover');
 function cover(on, msg){ coverOn = on; coverEl.textContent = msg || 'Video starting…'; coverEl.classList.toggle('off', !on); }
 function tell(m){ try{ (window.__log=window.__log||[]).push([Math.round(performance.now()/100)/10, m.state]); }catch(e){}
   try{ parent.postMessage(Object.assign({aemtPlayer:true, id}, m), '*'); }catch(e){} }
-if(!id){ cover(true,'No video selected.'); }
+const tt = (q.get('tt')||'').replace(/[^0-9]/g,'');
+if(tt){
+  // TikTok: official TikTok embed player, centred (TikToks are vertical). Controls shown; starts muted if the browser requires it.
+  document.getElementById('p').innerHTML = '<iframe src="https://www.tiktok.com/player/v1/' + tt + '?autoplay=1&controls=1&progress_bar=1&play_button=1&volume_control=1&fullscreen_button=0&timestamp=1&music_info=0&description=0&rel=0&native_context_menu=0&closed_caption=1" allow="autoplay; encrypted-media; fullscreen" style="position:fixed;top:0;bottom:0;left:50%;transform:translateX(-50%);height:100%;aspect-ratio:9/16;width:auto;border:0"></iframe>';
+  cover(false);
+} else if(!id){ cover(true,'No video selected.'); }
 else {
   const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
 }
