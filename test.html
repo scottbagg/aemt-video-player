@@ -32,7 +32,8 @@ let shown = (q.get('mode')||'play') !== 'preload';
 let player = null, ready = false, lastT = -1, stall = 0, coverOn = true, ended = false;
 const coverEl = document.getElementById('cover');
 function cover(on, msg){ coverOn = on; coverEl.textContent = msg || 'Video starting…'; coverEl.classList.toggle('off', !on); }
-function tell(m){ try{ parent.postMessage(Object.assign({aemtPlayer:true, id}, m), '*'); }catch(e){} }
+function tell(m){ try{ (window.__log=window.__log||[]).push([Math.round(performance.now()/100)/10, m.state]); }catch(e){}
+  try{ parent.postMessage(Object.assign({aemtPlayer:true, id}, m), '*'); }catch(e){} }
 if(!id){ cover(true,'No video selected.'); }
 else {
   const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
@@ -40,7 +41,8 @@ else {
 window.onYouTubeIframeAPIReady = function(){
   const pv = {autoplay:1, mute:1, controls:1, rel:0, modestbranding:1, playsinline:1, iv_load_policy:3, start:Math.floor(START)};
   if(END) pv.end = Math.ceil(END);
-  player = new YT.Player('p', { host:'https://www.youtube-nocookie.com', videoId:id, playerVars:pv,
+  const HOST = q.get('host')==='nocookie' ? 'https://www.youtube-nocookie.com' : 'https://www.youtube.com';
+  player = new YT.Player('p', { host:HOST, videoId:id, playerVars:pv,
     events:{ onReady:e=>{ e.target.mute(); e.target.playVideo(); tell({state:'loaded'}); } } });
   setInterval(tick, 250);
 };
