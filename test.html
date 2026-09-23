@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>AEMT video</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#p,#p iframe{position:fixed;inset:0;width:100%;height:100%;border:0}
+#cover{position:fixed;inset:0;background:#000;color:#8A8F99;display:flex;align-items:center;justify-content:center;font:22px/1.4 system-ui,sans-serif;z-index:5}
+#cover.off{display:none}
+</style>
+</head>
+<body>
+<div id="p"></div>
+<div id="cover">Video starting…</div>
+<script>
+/* AEMT presenter video player (github.com/scottbagg/aemt-video-player).
+   Loaded by the slide window. Two modes:
+   mode=preload : start the video hidden and MUTED so any pre-roll ad plays out unseen; once the real video is
+                  running, pause it at the clip start and report "ready".
+   mode=play    : show immediately (fallback).
+   Messages from the slide window: {cmd:'show'} play the clip; {cmd:'reset'} pause and rewind to the clip start.
+   Safety net: whenever the video's own clock is not moving while the player says it is playing/buffering
+   (an ad, or buffering), the screen is covered and the sound muted until the real video is moving again.
+   The clip stops itself at &end= (seconds). */
+const q = new URLSearchParams(location.search);
+const id = (q.get('v')||'').replace(/[^A-Za-z0-9_-]/g,'');
+const START = Math.max(0, parseFloat(q.get('start')||q.get('t')||'0')||0);
+const END = parseFloat(q.get('end')||'0')||0;
+let shown = (q.get('mode')||'play') !== 'preload';
+let player = null, ready = false, lastT = -1, stall = 0, coverOn = true, ended = false;
+const coverEl = document.getElementById('cover');
+function cover(on, msg){ coverOn = on; coverEl.textContent = msg || 'Video starting…'; coverEl.classList.toggle('off', !on); }
+function tell(m){ try{ parent.postMessage(Object.assign({aemtPlayer:true, id}, m), '*'); }catch(e){} }
+if(!id){ cover(true,'No video selected.'); }
+else {
+  const s = document.createElement('script'); s.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(s);
+}
+window.onYouTubeIframeAPIReady = function(){
+  const pv = {autoplay:1, mute:1, controls:1, rel:0, modestbranding:1, playsinline:1, iv_load_policy:3, start:Math.floor(START)};
+  if(END) pv.end = Math.ceil(END);
+  player = new YT.Player('p', { host:'https://www.youtube-nocookie.com', videoId:id, playerVars:pv,
+    events:{ onReady:e=>{ e.target.mute(); e.target.playVideo(); tell({state:'loaded'}); } } });
+  setInterval(tick, 250);
+};
+function tick(){
+  if(!player || !player.getPlayerState) return;
+  const st = player.getPlayerState(), t = player.getCurrentTime() || 0;
+  const moving = st === 1 && t > lastT + 0.05 && t >= START - 1;
+  lastT = t;
+  if(!shown){
+    if(moving && !ready){ ready = true; player.pauseVideo(); player.seekTo(START, true); tell({state:'ready'}); }
+    return;
+  }
+  if(END && t >= END - 0.25 && !ended){ ended = true; player.pauseVideo(); player.mute(); cover(true, 'End of clip — press B to go back to the slide'); tell({state:'ended'}); return; }
+  if(ended) return;
+  if(moving){ stall = 0; if(coverOn){ cover(false); player.unMute(); tell({state:'playing'}); } }
+  else if(st === 1 || st === 3 || st === -1 || st === 5){ stall += 250; if(stall >= 750 && !coverOn){ cover(true); player.mute(); tell({state:'covered'}); } }
+}
+window.addEventListener('message', e=>{
+  const d = e.data || {};
+  if(d.cmd === 'show'){ shown = true; ended = false; stall = 0; cover(true); if(player && player.playVideo){ player.playVideo(); } }
+  else if(d.cmd === 'reset'){ shown = false; ended = false; cover(true); if(player && player.pauseVideo){ player.pauseVideo(); player.mute(); player.seekTo(START, true); ready = true; } }
+});
+</script>
+</body>
+</html>
